@@ -1,0 +1,79 @@
+* LD_PRELOAD
+
+We can use ~LD_PRELOAD~ environment variable to set a location to
+fetch shared libraries. By setting this variable, we can overwrite the
+existing functions and make the standard command work differently, the
+way we want it to.
+
+The linker links the libraries in the path provided by ~LD_PRELOAD~
+for compiling the main file. Once a function is linked, when other
+instance of same function shows up, original location is ignored and
+the newer location is used.
+
+For example, let us try to overwrite the ~puts~ function present in
+~stdio.h~ file.
+
+[[./img/img4.png]]
+
+Consider a file ~main.c~, with following content:
+
+#+BEGIN_SRC C
+  #include <stdio.h>
+
+  int theFunction(const char *s)
+  {
+      return puts(s);
+  }
+
+  int main (int argc, char** argv) {
+      theFunction("Hello, this is traditional work flow.");
+      printf("%s: puts location: %p\n", __FILE__, puts);
+  }
+#+END_SRC
+
+Compiling and running the ~main.c~ file gives following output with
+location of ~puts~ as ~0x7f877af52ef0~.
+
+[[./img/img1.png]]
+
+Create another file, ~unmain.c~ as follows:
+
+#+BEGIN_SRC C
+  #include <stdio.h>
+
+  int puts(const char *__s)
+  {
+      return printf("New puts, hackerman alert!\n");
+  }
+#+END_SRC
+
+Now, create a shared library of this ~unmain.c~ file with command:
+
+#+BEGIN_SRC bash
+  gcc -fPIC unmain.c -shared -o unmain.so
+#+END_SRC
+
+Update the ~LD_PRELOAD~ with the location of the shared library, ~unmain.so~:
+
+#+BEGIN_SRC bash
+  export LD_PRELOAD="$PWD/unmain.so"
+#+END_SRC
+
+And then again run the first compiled ~main.c~ file's executable
+~main.o~ to see that the location of the ~puts~ has been updated. For
+my case, new location has been set to ~0x7f6003f5d119~.
+
+#+BEGIN_SRC bash
+  ./main.o
+#+END_SRC
+
+[[./img/img2.png]]
+
+To remove the shared library, use ~unset~ to unset value of
+~LD_PRELOAD~.
+
+#+BEGIN_SRC bash
+  unset LD_PRELOAD
+#+END_SRC
+
+[[./img/img3.png]]
